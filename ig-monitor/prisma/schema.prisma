@@ -1,0 +1,98 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TimeWindow {
+  H12
+  H24
+}
+
+model IgAccount {
+  id           String         @id @default(cuid())
+  handle       String         @unique
+  profileUrl   String
+  active       Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  posts        IgPost[]
+  snapshots    IgAccountSnapshot[]
+}
+
+model IgPost {
+  id          String       @id @default(cuid())
+  account     IgAccount    @relation(fields: [accountId], references: [id])
+  accountId   String
+  shortcode   String
+  permalink   String
+  caption     String
+  takenAt     DateTime
+  ogImageUrl  String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  metrics     IgMetric[]
+  windowTops  WindowTop[]
+  trending    TrendingNow[]
+
+  @@unique([accountId, shortcode])
+  @@index([accountId, takenAt])
+}
+
+model IgMetric {
+  id        String   @id @default(cuid())
+  post      IgPost   @relation(fields: [postId], references: [id])
+  postId    String
+  ts        DateTime
+  likes     Int      @default(0)
+  comments  Int      @default(0)
+
+  @@unique([postId, ts])
+  @@index([ts])
+}
+
+model IgAccountSnapshot {
+  id         String    @id @default(cuid())
+  account    IgAccount @relation(fields: [accountId], references: [id])
+  accountId  String
+  ts         DateTime
+  followers  BigInt?
+
+  @@index([accountId, ts])
+}
+
+model WindowTop {
+  id           String     @id @default(cuid())
+  window       TimeWindow
+  computedAt   DateTime
+  post         IgPost     @relation(fields: [postId], references: [id])
+  postId       String
+  interactions Int
+  rank         Int
+
+  @@index([window, computedAt, rank])
+}
+
+model TrendingNow {
+  id                   String   @id @default(cuid())
+  computedAt           DateTime
+  post                 IgPost   @relation(fields: [postId], references: [id])
+  postId               String
+  velocity             Float
+  velocityRatio        Float
+  interactions         Int
+  minutesSincePublish  Int
+  rank                 Int
+
+  @@index([computedAt, rank])
+}
